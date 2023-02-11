@@ -807,6 +807,7 @@ func (tc *TxnCoordSender) handleRetryableErrLocked(
 
 	case *roachpb.TransactionAbortedError:
 		tc.metrics.RestartsTxnAborted.Inc()
+		log.Warningf(ctx, "CPI-NS KV Transaction %s abort", tc.mu.txn.ID)
 
 	case *roachpb.TransactionPushError:
 		tc.metrics.RestartsTxnPush.Inc()

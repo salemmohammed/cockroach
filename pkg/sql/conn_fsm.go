@@ -25,6 +25,7 @@ import (
 	"github.com/cockroachdb/cockroach/pkg/sql/sqlfsm"
 	"github.com/cockroachdb/cockroach/pkg/util/fsm"
 	"github.com/cockroachdb/cockroach/pkg/util/hlc"
+	"github.com/cockroachdb/cockroach/pkg/util/log"
 	"github.com/cockroachdb/cockroach/pkg/util/uuid"
 )
 
@@ -391,6 +392,7 @@ var TxnStateTransitions = fsm.Compile(fsm.Pattern{
 				ts.txnAbortCount.Inc(1)
 				// Note that the KV txn has been rolled back by now by statement
 				// execution.
+				log.Warningf(ts.Ctx, "CPI-NS SQL Transaction %s abort", ts.mu.txn.ID())
 				return ts.finishTxn(txnRollback)
 			},
 		},

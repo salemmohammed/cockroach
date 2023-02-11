@@ -956,6 +956,7 @@ func (e *AutoCommitError) Error() string {
 func (txn *Txn) exec(ctx context.Context, fn func(context.Context, *Txn) error) (err error) {
 	// Run fn in a retry loop until we encounter a success or
 	// error condition this loop isn't capable of handling.
+	// log.Warningf(ctx, "CPI-NS Executing Transaction %s", txn.ID())
 	for {
 		if err := ctx.Err(); err != nil {
 			return err
