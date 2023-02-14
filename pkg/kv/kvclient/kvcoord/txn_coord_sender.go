@@ -14,7 +14,9 @@ import (
 	"context"
 	"fmt"
 	"runtime/debug"
+	"time"
 
+	"github.com/cockroachdb/cockroach/pkg/base"
 	"github.com/cockroachdb/cockroach/pkg/kv"
 	"github.com/cockroachdb/cockroach/pkg/roachpb"
 	"github.com/cockroachdb/cockroach/pkg/storage/enginepb"
@@ -227,8 +229,19 @@ func newRootTxnCoordSender(
 	}
 
 	tcs := &TxnCoordSender{
-		typ:                   kv.RootTxn,
-		TxnCoordSenderFactory: tcf,
+		typ: kv.RootTxn,
+		TxnCoordSenderFactory: &TxnCoordSenderFactory{
+			AmbientContext:         tcf.AmbientContext,
+			st:                     tcf.st,
+			wrapped:                tcf.wrapped,
+			clock:                  tcf.clock,
+			stopper:                tcf.stopper,
+			linearizable:           tcf.linearizable,
+			heartbeatInterval:      tcf.heartbeatInterval,
+			metrics:                MakeTxnMetrics(base.DefaultHistogramWindowInterval()),
+			condensedIntentsEveryN: log.Every(time.Second),
+			testingKnobs:           tcf.testingKnobs,
+		},
 	}
 	tcs.mu.txnState = txnPending
 	tcs.mu.userPriority = pri
@@ -623,12 +636,12 @@ func (tc *TxnCoordSender) Send(
 // For more, see https://www.cockroachlabs.com/blog/consistency-model/ and
 // docs/RFCS/20200811_non_blocking_txns.md.
 func (tc *TxnCoordSender) maybeCommitWait(ctx context.Context, deferred bool) error {
-	log.Info(ctx,"maybeCommitWait TxnCoordSender")
+	log.Info(ctx, "maybeCommitWait TxnCoordSender")
 	if tc.mu.txn.Status != roachpb.COMMITTED {
 		log.Fatalf(ctx, "maybeCommitWait called when not committed")
 	}
 	if tc.mu.commitWaitDeferred && !deferred {
-		log.Info(ctx,"tc.mu.commitWaitDeferred && !deferred")
+		log.Info(ctx, "tc.mu.commitWaitDeferred && !deferred")
 		// If this is an automatic commit-wait call and the user of this
 		// transaction has opted to defer the commit-wait and handle it
 		// externally, there's nothing to do yet.
@@ -644,7 +657,7 @@ func (tc *TxnCoordSender) maybeCommitWait(ctx context.Context, deferred bool) er
 		waitUntil = waitUntil.Add(tc.clock.MaxOffset().Nanoseconds(), 0)
 	}
 	if waitUntil.LessEq(tc.clock.Now()) {
-		log.Info(ctx,"waitUntil.LessEq(tc.clock.Now())")
+		log.Info(ctx, "waitUntil.LessEq(tc.clock.Now())")
 		// No wait fast-path. This is the common case for most transactions. Only
 		// transactions who have their commit timestamp bumped into the future will
 		// need to wait.

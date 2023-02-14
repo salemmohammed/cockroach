@@ -12,6 +12,8 @@ package kvcoord
 
 import (
 	"context"
+	"fmt"
+
 	"github.com/cockroachdb/cockroach/pkg/util/log"
 
 	"github.com/cockroachdb/cockroach/pkg/roachpb"
@@ -113,8 +115,8 @@ func (m *txnMetricRecorder) closeLocked() {
 	switch status {
 	case roachpb.ABORTED:
 		m.metrics.Aborts.Inc(1)
-		m.metrics.GetEva(ctx)
-		log.Info(ctx,"roachpb.ABORTED")
+		// m.metrics.GetEva(ctx)
+		// log.Info(ctx,"roachpb.ABORTED")
 	case roachpb.PENDING:
 		// NOTE(andrei): Getting a PENDING status here is possible when this
 		// interceptor is closed without a rollback ever succeeding.
@@ -124,13 +126,19 @@ func (m *txnMetricRecorder) closeLocked() {
 		// Record failed aborts separately as in this case EndTxn never succeeded
 		// which means intents are left for subsequent cleanup by reader.
 		m.metrics.RollbacksFailed.Inc(1)
-		m.metrics.GetEva(ctx)
-		log.Info(ctx,"roachpb.PENDING")
+		// m.metrics.GetEva(ctx)
+		// log.Info(ctx,"roachpb.PENDING")
 	case roachpb.COMMITTED:
 		// Note that successful read-only txn are also counted as committed, even
 		// though they never had a txn record.
 		m.metrics.Commits.Inc(1)
-		m.metrics.GetEva(ctx)
-		log.Info(ctx,"roachpb.COMMITTED")
+		// m.metrics.GetEva(ctx)
+		// log.Info(ctx,"roachpb.COMMITTED")
 	}
+	log.Info(ctx, m.stringifyMetrics())
+}
+
+func (m *txnMetricRecorder) stringifyMetrics() string {
+	return fmt.Sprintf(`{transaction: "%s", Aborts: "%d", RestartsTxnAborted: "%d", Commits: "%d", Commits1PC: "%d", ParallelCommits: "%d", CommitWaits: "%d", RefreshSuccess: "%d", RefreshFail: "%d", RefreshFailWithCondensedSpans: "%d", RefreshMemoryLimitExceeded: "%d", RefreshAutoRetries: "%d", Durations: "%d", TxnsWithCondensedIntents: "%d"}, TxnsRejectedByLockSpanBudget: "%d", Restarts: "%d", RestartsWriteTooOld: "%d", RestartsWriteTooOldMulti: "%d", RestartsSerializable: "%d", RestartsAsyncWriteFailure: "%d", RestartsCommitDeadlineExceeded: "%d", RestartsReadWithinUncertainty: "%d", RestartsTxnPush: "%d", RestartsUnknown: "%d", RollbacksFailed: "%d", AsyncRollbacksFailed: "%d" }`,
+		m.txn.ID, m.metrics.Aborts.Count(), m.metrics.RestartsTxnAborted.Count(), m.metrics.Commits.Count(), m.metrics.Commits1PC.Count(), m.metrics.ParallelCommits.Count(), m.metrics.CommitWaits.Count(), m.metrics.RefreshSuccess.Count(), m.metrics.RefreshFail.Count(), m.metrics.RefreshFailWithCondensedSpans.Count(), m.metrics.RefreshMemoryLimitExceeded.Count(), m.metrics.RefreshAutoRetries.Count(), m.metrics.Durations.TotalCount(), m.metrics.TxnsWithCondensedIntents.Count(), m.metrics.TxnsRejectedByLockSpanBudget.Count(), m.metrics.Restarts.TotalCount(), m.metrics.RestartsWriteTooOld.Count(), m.metrics.RestartsWriteTooOldMulti.Count(), m.metrics.RestartsSerializable.Count(), m.metrics.RestartsAsyncWriteFailure.Count(), m.metrics.RestartsCommitDeadlineExceeded.Count(), m.metrics.RestartsReadWithinUncertainty.Count(), m.metrics.RestartsTxnPush.Count(), m.metrics.RestartsUnknown.Count(), m.metrics.RollbacksFailed.Count(), m.metrics.AsyncRollbacksFailed.Count())
 }
